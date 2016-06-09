@@ -11,12 +11,23 @@
 @class CMDocument;
 @class CMTextAttributes;
 @class UITextView;
+@class CMImageAttachmentManager;
 
 @protocol CMHTMLElementTransformer;
+
+@protocol CMAttributedStringRendererDelegate <NSObject>
+
+- (void) rendererDidUpdateAttributedString;
+
+@end
+
 /**
  *  Renders an attributed string from a Markdown document
  */
 @interface CMAttributedStringRenderer : NSObject
+
+@property (nonatomic, weak) id <CMAttributedStringRendererDelegate> delegate;
+@property (nonatomic, readonly) CMImageAttachmentManager *attachmentsManager;
 
 /**
  *  Designated initializer.

@@ -14,15 +14,18 @@
 @property (nonatomic, readonly, nullable) NSString *title;
 @property (nonatomic, readonly) NSRange range;
 @property (nonatomic, readonly, nullable) NSTextAttachment *attachment;
+@property (nonatomic) CGSize attachmentSize;
 
-+ (instancetype)imageWrapperWithURL:(nonnull NSURL*)url title:(nullable NSString*)title range:(NSRange)range;
++ (nullable instancetype)imageWrapperWithURL:(nonnull NSURL*)url title:(nullable NSString*)title range:(NSRange)range;
 
 @end
 
 @interface CMImageAttachmentManager : NSObject
 
+@property (nonatomic, readonly, nonnull) NSMutableArray<CMMarkdownImageWrapper*> *attachments;
+
 - (void)addMarkdownImageToDownload:(nonnull CMMarkdownImageWrapper*)imageWrapper
-                   completionBlock:(nonnull void (^) (CMMarkdownImageWrapper* _Nonnull updateImage))completionBlock;
+                   completionBlock:(nonnull void (^) (CMMarkdownImageWrapper* _Nonnull updateImage, BOOL cachedImage))completionBlock;
 
 
 @end

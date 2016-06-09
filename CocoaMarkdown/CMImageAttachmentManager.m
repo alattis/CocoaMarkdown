@@ -33,6 +33,7 @@
 @interface CMImageAttachmentManager()
 
 @property (nonatomic, strong, nonnull) NSMutableArray<CMMarkdownImageWrapper*> *attachments;
+@property (nonatomic, strong) NSCache *cache;
 
 @end
 
@@ -41,25 +42,39 @@
 - (id)init {
     if (self = [super init]) {
         _attachments = [NSMutableArray new];
+        _cache = [[NSCache alloc] init];
     }
     return self;
 }
 
 - (void)addMarkdownImageToDownload:(CMMarkdownImageWrapper*)imageWrapper
-                   completionBlock:(void(^)(CMMarkdownImageWrapper* updateImage))completionBlock {
+                   completionBlock:(void(^)(CMMarkdownImageWrapper* updateImage, BOOL cachedImage))completionBlock {
     
     
     NSMutableURLRequest *urlRequest = [NSMutableURLRequest requestWithURL:imageWrapper.url];
     [urlRequest addValue:@"image/*" forHTTPHeaderField:@"Accept"];
+        
+    NSData *cachedImage = [self.cache objectForKey:urlRequest.URL.absoluteString];
+    if (cachedImage) {
+        
+        NSTextAttachment *attachment = [NSTextAttachment new];
+        attachment.image = [UIImage imageWithData:cachedImage];
+        imageWrapper.attachment = attachment;
+        imageWrapper.attachmentSize = attachment.image.size;
+        completionBlock(imageWrapper, YES);
+
+        return;
+    }
     
     AFHTTPRequestOperation *requestOp = [[AFHTTPRequestOperation alloc] initWithRequest:urlRequest];
     [requestOp setCompletionBlockWithSuccess:^(AFHTTPRequestOperation * _Nonnull operation, id  _Nonnull responseObject) {
-        [[[NSCache alloc] init] setObject:responseObject forKey:urlRequest.URL.absoluteString];
+        [self.cache setObject:responseObject forKey:urlRequest.URL.absoluteString];
         
         NSTextAttachment *attachment = [NSTextAttachment new];
         attachment.image = [UIImage imageWithData:responseObject];
         imageWrapper.attachment = attachment;
-        completionBlock(imageWrapper);
+        imageWrapper.attachmentSize = attachment.image.size;
+        completionBlock(imageWrapper, NO);
     } failure:nil];
     
     [self.attachments addObject:imageWrapper];

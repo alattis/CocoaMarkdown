@@ -55,12 +55,6 @@
     self.tagNameToTransformerMapping[[transformer.class tagName]] = transformer;
 }
 
-- (void)prerendering {
-    self.attributeStack = [[CMCascadingAttributeStack alloc] init];
-    self.HTMLStack = [[CMStack alloc] init];
-    self.buffer = [[NSMutableAttributedString alloc] init];
-    self.attachmentsManager = [CMImageAttachmentManager new];
-}
 
 - (NSAttributedString *)render
 {
@@ -84,7 +78,13 @@
 
 - (void)renderAndSyncWithTextView:(UITextView *)textView {
     self.textView = textView;
-    [self prerendering];
+    self.attributeStack = [[CMCascadingAttributeStack alloc] init];
+    self.HTMLStack = [[CMStack alloc] init];
+    self.buffer = [[NSMutableAttributedString alloc] init];
+    if (!self.attachmentsManager) {
+        self.attachmentsManager = [CMImageAttachmentManager new];
+    }
+    
     CMParser *parser = [[CMParser alloc] initWithDocument:self.document delegate:self];
     [parser parse];
     self.attributedString = [self.buffer copy];
@@ -313,14 +313,14 @@
     NSTextAttachment *attachment    = [NSTextAttachment new];
     attachment.image                = [UIImage imageNamed:@"placeholder@2x.png"];
     NSAttributedString *string      = [NSAttributedString attributedStringWithAttachment:attachment];
-    NSRange range                   = NSMakeRange(self.buffer.mutableString.length, 1);
+    NSRange range                   = NSMakeRange(self.buffer.mutableString.length, 0);
     
     [self.buffer appendAttributedString:string];
     
     __weak typeof(self) weakSelf = self;
     
     [self.attachmentsManager addMarkdownImageToDownload: [CMMarkdownImageWrapper imageWrapperWithURL:URL title:title range:range]
-                                        completionBlock:^(CMMarkdownImageWrapper * _Nonnull updatedImage) {
+                                        completionBlock:^(CMMarkdownImageWrapper * _Nonnull updatedImage, BOOL cached) {
         dispatch_async(dispatch_get_main_queue(), ^{
             typeof(self)strongSelf = weakSelf;
             NSMutableAttributedString *updatedString = [[NSAttributedString attributedStringWithAttachment:updatedImage.attachment] mutableCopy];
@@ -328,6 +328,10 @@
             paragraphStyle.alignment = NSTextAlignmentCenter;
             [updatedString addAttribute:NSParagraphStyleAttributeName value:paragraphStyle range:NSMakeRange(0, updatedString.length)];
             [strongSelf.textView.textStorage replaceCharactersInRange:updatedImage.range withAttributedString:updatedString];
+            
+            if (strongSelf.delegate && cached == NO) {
+                [strongSelf.delegate rendererDidUpdateAttributedString];
+            }
         });
     }];
     
