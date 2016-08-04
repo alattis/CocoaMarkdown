@@ -7,7 +7,7 @@
 //
 
 #import "CMImageAttachmentManager.h"
-#import "AFNetworking.h"
+#import "AFImageDownloader.h"
 
 @interface CMMarkdownImageWrapper()
 
@@ -34,6 +34,7 @@
 
 @property (nonatomic, strong, nonnull) NSMutableArray<CMMarkdownImageWrapper*> *attachments;
 @property (nonatomic, strong) NSCache *cache;
+@property (nonatomic, strong, nullable) AFHTTPSessionManager *httpManager;
 
 @end
 
@@ -43,6 +44,7 @@
     if (self = [super init]) {
         _attachments = [NSMutableArray new];
         _cache = [[NSCache alloc] init];
+        _httpManager = [AFHTTPSessionManager manager];
     }
     return self;
 }
@@ -53,12 +55,12 @@
     
     NSMutableURLRequest *urlRequest = [NSMutableURLRequest requestWithURL:imageWrapper.url];
     [urlRequest addValue:@"image/*" forHTTPHeaderField:@"Accept"];
-        
-    NSData *cachedImage = [self.cache objectForKey:urlRequest.URL.absoluteString];
-    if (cachedImage) {
+    
+    UIImage *cachedImage = [self.cache objectForKey:imageWrapper.url.absoluteString];
+    if (cachedImage && [cachedImage isKindOfClass:[UIImage class]]) {
         
         NSTextAttachment *attachment = [NSTextAttachment new];
-        attachment.image = [UIImage imageWithData:cachedImage];
+        attachment.image =cachedImage;
         imageWrapper.attachment = attachment;
         imageWrapper.attachmentSize = attachment.image.size;
         completionBlock(imageWrapper, YES);
@@ -66,19 +68,18 @@
         return;
     }
     
-    AFHTTPRequestOperation *requestOp = [[AFHTTPRequestOperation alloc] initWithRequest:urlRequest];
-    [requestOp setCompletionBlockWithSuccess:^(AFHTTPRequestOperation * _Nonnull operation, id  _Nonnull responseObject) {
-        [self.cache setObject:responseObject forKey:urlRequest.URL.absoluteString];
-        
-        NSTextAttachment *attachment = [NSTextAttachment new];
-        attachment.image = [UIImage imageWithData:responseObject];
-        imageWrapper.attachment = attachment;
-        imageWrapper.attachmentSize = attachment.image.size;
-        completionBlock(imageWrapper, NO);
+    [[AFImageDownloader defaultInstance] downloadImageForURLRequest:urlRequest success:^(NSURLRequest * _Nonnull request, NSHTTPURLResponse * _Nullable response, UIImage * _Nonnull responseObject) {
+        if ([responseObject isKindOfClass:[UIImage class]]) {
+            [self.cache setObject:responseObject forKey:imageWrapper.url.absoluteString];
+            
+            NSTextAttachment *attachment = [NSTextAttachment new];
+            attachment.image = responseObject;
+            imageWrapper.attachment = attachment;
+            imageWrapper.attachmentSize = attachment.image.size;
+            completionBlock(imageWrapper, NO);
+        }
     } failure:nil];
-    
-    [self.attachments addObject:imageWrapper];
-    [requestOp start];
+
 }
 
 @end
